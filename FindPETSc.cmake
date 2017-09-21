@@ -72,6 +72,7 @@ list(APPEND petsc_dir_locations "$ENV{HOME}/miniconda2")
 
 # Add other possible locations for PETSC_DIR
 set(_SYSTEM_LIB_PATHS "${CMAKE_SYSTEM_LIBRARY_PATH};${CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES}")
+# Because CMAKE_SYSTEM_LIBRARY_PATH here, a conda cmake can find PETSc, because they are all under miniconda2
 string(REGEX REPLACE ":" ";" libdirs ${_SYSTEM_LIB_PATHS})
 foreach (libdir ${libdirs})
   get_filename_component(petsc_dir_location "${libdir}/" PATH)
@@ -160,7 +161,7 @@ show :
 
   # Extract include paths and libraries from compile command line
   include(ResolveCompilerPaths)
-  resolve_includes(PETSC_INCLUDE_DIRS "${PETSC_CC_INCLUDES}")
+  resolve_includes(PETSC_INCLUDE_DIRS "${PETSC_CC_INCLUDES}") # TODO: this may conflict with miniconda
   resolve_libraries(PETSC_LIBRARIES "${PETSC_LIB}")
 
   # Add some extra libraries on OSX
