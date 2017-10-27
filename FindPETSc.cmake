@@ -68,11 +68,9 @@ list(APPEND petsc_dir_locations "/usr/lib/petsc")           # Debian location
 list(APPEND petsc_dir_locations "/opt/local/lib/petsc")     # Macports location
 list(APPEND petsc_dir_locations "/usr/local/lib/petsc")     # User location
 list(APPEND petsc_dir_locations "$ENV{HOME}/petsc")         # User location
-list(APPEND petsc_dir_locations "$ENV{HOME}/miniconda2")
 
 # Add other possible locations for PETSC_DIR
 set(_SYSTEM_LIB_PATHS "${CMAKE_SYSTEM_LIBRARY_PATH};${CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES}")
-# Because CMAKE_SYSTEM_LIBRARY_PATH here, a conda cmake can find PETSc, because they are all under miniconda2
 string(REGEX REPLACE ":" ";" libdirs ${_SYSTEM_LIB_PATHS})
 foreach (libdir ${libdirs})
   get_filename_component(petsc_dir_location "${libdir}/" PATH)
@@ -122,7 +120,7 @@ endif()
 
 # Look for petscconf.h
 if (EXISTS ${PETSC_DIR}/${PETSC_ARCH}/include/petscconf.h)
-  message(STATUS "Found petscconf.h")
+  message(STATUS "Found ${PETSC_DIR}/${PETSC_ARCH}/include/petscconf.h")
   set(FOUND_PETSC_CONF 1)
 else()
   message(STATUS "Unable to find petscconf.h")
@@ -132,8 +130,10 @@ endif()
 if (FOUND_PETSC_CONF)
 
   # Find PETSc config file
-  find_file(PETSC_VARIABLES_FILE NAMES variables PATHS ${PETSC_DIR}/lib/petsc/conf)
-
+  find_file(PETSC_VARIABLES_FILE NAMES variables PATHS ${PETSC_DIR}/lib/petsc/conf ${PETSC_DIR}/conf ${PETSC_DIR}/${PETSC_ARCH}/conf)
+  if (NOT PETSC_VARIABLES_FILE)
+    message(FATAL_ERROR "Cannot find PETSc variable file")
+  endif()
   # Create a temporary Makefile to probe the PETSc configuration
   set(petsc_config_makefile ${PROJECT_BINARY_DIR}/Makefile.petsc)
   file(WRITE ${petsc_config_makefile}
@@ -161,7 +161,7 @@ show :
 
   # Extract include paths and libraries from compile command line
   include(ResolveCompilerPaths)
-  resolve_includes(PETSC_INCLUDE_DIRS "${PETSC_CC_INCLUDES}") # TODO: this may conflict with miniconda
+  resolve_includes(PETSC_INCLUDE_DIRS "${PETSC_CC_INCLUDES}")
   resolve_libraries(PETSC_LIBRARIES "${PETSC_LIB}")
 
   # Add some extra libraries on OSX
@@ -248,6 +248,11 @@ int main() {
     RUN_OUTPUT_VARIABLE OUTPUT
     )
 
+  if (NOT PETSC_CONFIG_TEST_VERSION_COMPILED)
+    message(STATUS "Compiling PETSC configuration test version - Failed (see below)")
+    message(STATUS "${COMPILE_OUTPUT}")
+  endif()
+
   if (PETSC_CONFIG_TEST_VERSION_EXITCODE EQUAL 0)
     set(PETSC_VERSION ${OUTPUT} CACHE TYPE STRING)
     string(REPLACE "." ";" PETSC_VERSION_LIST ${PETSC_VERSION})
@@ -259,6 +264,7 @@ int main() {
     message(STATUS "Found PETSc version ${PETSC_VERSION}" )
   else()
     message(STATUS "Performing check PETSc version - Failed")
+    message(STATUS "${OUTPUT}")
   endif()
 
   if (PETSc_FIND_VERSION)
@@ -309,20 +315,20 @@ ierr = PetscFinalize();CHKERRQ(ierr);
     RUN_OUTPUT_VARIABLE PETSC_TEST_LIB_OUTPUT
     )
 
+  message(STATUS "${CMAKE_REQUIRED_INCLUDES}")
+  message(STATUS "${CMAKE_REQUIRED_LIBRARIES}")
   if(PETSC_TEST_LIB_COMPILED)
     message(STATUS "PETSc test program compiled")
   else()
     message(STATUS "PETSc test program compilation - Failed (see following output)")
     message(STATUS "${PETSC_TEST_LIB_COMPILE_OUTPUT}")
-    message(STATUS "compiled with includes:  ${CMAKE_REQUIRED_INCLUDES}")
-    message(STATUS "compiled with libraries: ${CMAKE_REQUIRED_LIBRARIES}")  
   endif()
 
   if (PETSC_TEST_LIB_COMPILED AND PETSC_TEST_LIB_EXITCODE EQUAL 0)
     message(STATUS "Performing test PETSC_TEST_RUNS - Success")
     set(PETSC_TEST_RUNS TRUE)
   else()
-    message(STATUS "Performing test PETSC_TEST_RUNS - Failed (see running output below)")
+    message(STATUS "Performing test PETSC_TEST_RUNS - Failed (see follow)")
     message(STATUS "${PETSC_TEST_LIB_OUTPUT}")
   endif()
 
@@ -340,5 +346,5 @@ endif()
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(PETSc
   "PETSc could not be found. Be sure to set PETSC_DIR and PETSC_ARCH."
-  PETSC_LIBRARIES PETSC_DIR PETSC_INCLUDE_DIRS PETSC_TEST_RUNS
+  PETSC_LIBRARIES PETSC_DIR PETSC_INCLUDE_DIRS #PETSC_TEST_RUNS
   PETSC_VERSION PETSC_VERSION_OK)
